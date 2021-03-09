@@ -1,0 +1,58 @@
+"accessories": [
+    {
+        "accessory": "Sensor",
+        "name": "Sensor",
+        "schedule": "30 * * * * *",
+        "indicate_te_sensor": "true",
+        "temperature": {
+            "sensor": "nature_remo",
+            "nature_remo": {
+                "access_token": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+                "device_name": "Nature_Remo"
+            }
+        },
+        "indicate_hu_sensor": "true",
+        "humidity": {
+            "sensor": "nature_remo",
+            "nature_remo": {
+                "access_token": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+                "device_name": "Nature_Remo"
+            }
+        },
+        "indicate_li_sensor": "true",
+        "light": {
+            "sensor": "nature_remo",
+            "nature_remo": {
+                "access_token": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+                "device_name": "Nature_Remo"
+            }
+        },
+        "indicate_co2_sensor": true,
+        "co2": {
+            "sensor": "mh_z19",
+            "mh_z19": {
+                "uart_path": "/dev/ttyAMA1"
+            }
+        },
+        "indicate_pm10_sensor": true,
+        "pm10": {
+            "sensor": "zh06",
+            "zh06": {
+                "uart_path": "/dev/ttyAMA2"
+            }
+        },
+        "indicate_pm2_5_sensor": true,
+        "pm2_5": {
+            "sensor": "zh06",
+            "zh06": {
+                "uart_path": "/dev/ttyAMA2"
+            }
+        },
+        "use_elasticsearch": false,
+        "elasticsearch_seting": {
+            "host": "localhost:9200",
+            "index": "measured_value",
+            "title": "measured_value",
+            "date_format": "YYYY-MM-DDTHH:mm:ss"
+        }
+    },

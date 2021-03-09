@@ -1,0 +1,37 @@
+{
+  "name": "homebridge-sensor",
+  "version": "0.3.0",
+  "main": "index.js",
+  "scripts": {
+    "lint": "echo \"Warning: lint is not used\" && exit 0",
+    "build": "echo \"Warning: build is not used\" && exit 0"
+  },
+  "engines": {
+    "node": ">=10.17.0",
+    "homebridge": ">=1.0.0"
+  },
+  "dependencies": {
+    "elasticsearch": "^16.7.2",
+    "mh_z19": "^0.1.7",
+    "moment": "^2.29.1",
+    "natureremo_cloud_sensor": "^0.1.2",
+    "node-cron": "^2.0.3",
+    "promise": "^8.1.0",
+    "zh06": "^0.1.0"
+  },
+  "keywords": [
+    "homebridge-plugin"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mizuka-ninomae/homebridge-sensor.git"
+  },
+  "author": "mizuka-ninomae",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/mizuka-ninomae/homebridge-sensor/issues"
+  },
+  "homepage": "https://github.com/mizuka-ninomae/homebridge-sensor#readme",
+  "devDependencies": {},
+  "description": ""
+}
