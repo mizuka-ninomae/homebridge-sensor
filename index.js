@@ -129,12 +129,13 @@ function SensorAccessory (log, config) {
   this.G_F_boundary                  = config ["pm_G_F_boundary"]                  || 15
   this.F_I_boundary                  = config ["pm_F_I_boundary"]                  || 25
   this.I_P_boundary                  = config ["pm_I_P_boundary"]                  || 35
+  this.air_quality_num               = null;
 
 //---- PM10 Sensor ---------------------------------------------------------------
   this.indicate_pm10_sensor          = config ["indicate_pm10_sensor"]             || false;
   if (this.indicate_pm10_sensor) {
     this.pm10_val                    = null;
-    this.air_quality1                = null;
+    this.air_quality_num1            = null;
     this.pm10_sensor                 = config.pm10 ["sensor"];
     switch (this.pm10_sensor) {
       case "zh06":
@@ -150,7 +151,7 @@ function SensorAccessory (log, config) {
     this.indicate_pm2_5_sensor       = config ["indicate_pm2_5_sensor"]            || false;
     if (this.indicate_pm2_5_sensor) {
       this.pm2_5_val                 = null;
-      this.air_quality2              = null;
+      this.air_quality_num2          = null;
       this.pm2_5_sensor              = config.pm2_5 ["sensor"];
       switch (this.pm2_5_sensor) {
         case "zh06":
@@ -281,6 +282,7 @@ SensorAccessory.prototype.getNatureRemoMeasuredValue = function () {
     if (this.te_sensor == "nature_remo") {
       this.te_val = value.te
       if (this.te_val == null) {
+        this.log(`<<<< [Error] Temperature`);
         this.temperatureSensorService
           .updateCharacteristic (Characteristic.CurrentTemperature, new Error (error));
       }
@@ -294,6 +296,7 @@ SensorAccessory.prototype.getNatureRemoMeasuredValue = function () {
     if (this.hu_sensor == "nature_remo") {
       this.hu_val = value.hu
       if (this.hu_val == null) {
+        this.log(`<<<< [Error] Humidity`);
         this.humiditySensorService
           .updateCharacteristic (Characteristic.CurrentRelativeHumidity, new Error (error));
       }
@@ -307,6 +310,7 @@ SensorAccessory.prototype.getNatureRemoMeasuredValue = function () {
     if (this.li_sensor == "nature_remo") {
       this.li_val = value.li
       if (this.li_val == null) {
+        this.log(`<<<< [Error] Light Level`);
         this.lightSensorService
           .updateCharacteristic (Characteristic.CurrentAmbientLightLevel, new Error (error));
       }
@@ -355,6 +359,8 @@ SensorAccessory.prototype.getMhz19MeasuredValue = function () {
   new MH_Z19 (this.mhz19_uart_path, function (error, value, stderr) {
     this.co2_val = value
     if (this.co2_val == null) {
+      this.log(`<<<< [Error] Carbon Dioxide Level`);
+      this.log(`<<<< [Error] Carbon Dioxide Detected`);
       this.CarbonDioxideSensorService
         .updateCharacteristic (Characteristic.CarbonDioxideLevel, new Error (error));
       this.CarbonDioxideSensorService
@@ -378,16 +384,21 @@ SensorAccessory.prototype.getZh06MeasuredValue = function () {
 
     if (this.pm10_sensor == "zh06") {
       this.pm10_val = value.pm10
-      if (this.te_val == null) {
+      if (this.pm10_val == null) {
+        this.AirQualitySensorService
+          .updateCharacteristic (Characteristic.AirQuality, 0);
+        this.log (`<<<< [Update] Air Quality: UNKNOWN`);
+        this.air_quality_num = 0;
         this.AirQualitySensorService
           .updateCharacteristic (Characteristic.PM10Density, new Error (error));
+        this.log (`<<<< [Error] Air Quality (PM10)`);
       }
       else {
-        this.air_quality1 = (this.pm10_E_G_boundary < this.pm10_val) ? 2 : 1;
-        this.air_quality1 = (this.pm10_G_F_boundary < this.pm10_val) ? 3 : 1;
-        this.air_quality1 = (this.pm10_F_I_boundary < this.pm10_val) ? 4 : 1;
-        this.air_quality1 = (this.pm10_I_P_boundary < this.pm10_val) ? 5 : 1;
-        this.log(`<<<< [Update] PM10 Density: ${this.pm10_val}`);
+        this.air_quality_num1 = (this.E_G_boundary < this.pm10_val) ? 2 : 1;
+        this.air_quality_num1 = (this.G_F_boundary < this.pm10_val) ? 3 : 1;
+        this.air_quality_num1 = (this.F_I_boundary < this.pm10_val) ? 4 : 1;
+        this.air_quality_num1 = (this.I_P_boundary < this.pm10_val) ? 5 : 1;
+        this.log (`<<<< [Update] PM10 Density: ${this.pm10_val}`);
         this.AirQualitySensorService
           .updateCharacteristic (Characteristic.PM10Density, this.pm10_val);
       };
@@ -395,36 +406,55 @@ SensorAccessory.prototype.getZh06MeasuredValue = function () {
 
     if (this.pm2_5_sensor == "zh06") {
       this.pm2_5_val = value.pm2_5
-      if (this.te_val == null) {
+      if (this.pm2_5_val == null) {
+        this.AirQualitySensorService
+          .updateCharacteristic (Characteristic.AirQuality, 0);
+        this.log (`<<<< [Update] Air Quality: UNKNOWN`);
+        this.air_quality_num = 0;
         this.AirQualitySensorService
           .updateCharacteristic (Characteristic.PM2_5Density, new Error (error));
+        this.log (`<<<< [Error] Air Quality (PM2.5)`);
       }
       else {
-        this.air_quality2 = (this.pm2_5_E_G_boundary < this.pm2_5_val) ? 2 : 1;
-        this.air_quality2 = (this.pm2_5_G_F_boundary < this.pm2_5_val) ? 3 : 1;
-        this.air_quality2 = (this.pm2_5_F_I_boundary < this.pm2_5_val) ? 4 : 1;
-        this.air_quality2 = (this.pm2_5_I_P_boundary < this.pm2_5_val) ? 5 : 1;
-        this.log(`<<<< [Update] PM2_5 Density: ${this.pm2_5_val}`);
+        this.air_quality_num2 = (this.E_G_boundary < this.pm2_5_val) ? 2 : 1;
+        this.air_quality_num2 = (this.G_F_boundary < this.pm2_5_val) ? 3 : 1;
+        this.air_quality_num2 = (this.F_I_boundary < this.pm2_5_val) ? 4 : 1;
+        this.air_quality_num2 = (this.I_P_boundary < this.pm2_5_val) ? 5 : 1;
+        this.log (`<<<< [Update] PM2_5 Density: ${this.pm2_5_val}`);
         this.AirQualitySensorService
           .updateCharacteristic (Characteristic.PM2_5Density, this.pm2_5_val);
       };
     };
 
-    if (this.indicate_pm10_sensor == true && this.indicate_pm2_5_sensor == true) {
-      this.air_quality = Math.round ((this.air_quality1 + this.air_quality2) / 2)
-      this.log(`<<<< [Update] Air Quality: ${this.air_quality}`);
+    if (this.air_quality_num != 0) {
+      if (this.indicate_pm10_sensor == true && this.indicate_pm2_5_sensor == true) {
+        this.air_quality_num = Math.round ((this.air_quality_num1 + this.air_quality_num2) / 2)
+      }
+      else if (this.indicate_pm10_sensor == true) {
+        this.air_quality_num = this.air_quality_num1
+      }
+      else if (this.indicate_pm2_5_sensor == true) {
+        this.air_quality_num = this.air_quality_num2
+      }
       this.AirQualitySensorService
-        .updateCharacteristic (Characteristic.AirQuality, this.air_quality);
-    }
-    else if (this.indicate_pm10_sensor == true) {
-      this.log(`<<<< [Update] Air Quality: ${this.air_quality1}`);
-      this.AirQualitySensorService
-        .updateCharacteristic (Characteristic.AirQuality, this.air_quality1);
-    }
-    else if (this.indicate_pm2_5_sensor == true) {
-      this.log(`<<<< [Update] Air Quality: ${this.air_quality2}`);
-      this.AirQualitySensorService
-        .updateCharacteristic (Characteristic.AirQuality, this.air_quality2);
+        .updateCharacteristic (Characteristic.AirQuality, this.air_quality_num);
+      switch (this.air_quality_num) {
+        case 1:
+          this.log(`<<<< [Update] Air Quality: EXCELLENT`);
+          break;
+        case 2:
+          this.log(`<<<< [Update] Air Quality: GOOD`);
+          break;
+        case 3:
+          this.log(`<<<< [Update] Air Quality: FAIR`);
+          break;
+        case 4:
+          this.log(`<<<< [Update] Air Quality: INFERIOR`);
+          break;
+        case 5:
+          this.log(`<<<< [Update] Air Quality: POOR`);
+          break;
+      }
     }
 
   }.bind (this));
@@ -437,15 +467,15 @@ SensorAccessory.prototype.setElasticsearch = function () {
 
   client.ping ({ requestTimeout: 2000 }, function (error) {
     if (error) {
-      this.log (`* * * Elasticsearch cluster is down * * *`);
+      this.log (`>>>> [Error] Elasticsearch cluster is down`);
     }
     else {
       client.index (send_json, function (error) {
         if (error) {
-          this.log (`* * * Elasticsearch Error * * *`);
+          this.log (`>>>> [Error] Elasticsearch`);
         }
         else {
-          this.log (`>>>> [Uplord] Elasticsearch: * * Document Input * *`);
+          this.log (`>>>> [Document Input] Elasticsearch`);
         }
       }.bind (this));
     }
