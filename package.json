@@ -1,6 +1,6 @@
 {
   "name": "homebridge-sensor",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "main": "index.js",
   "scripts": {
     "lint": "echo \"Warning: lint is not used\" && exit 0",
@@ -11,13 +11,14 @@
     "homebridge": ">=1.0.0"
   },
   "dependencies": {
+    "cron": "^1.8.2",
     "elasticsearch": "^16.7.2",
     "mh_z19": "^0.1.7",
     "moment": "^2.29.1",
     "natureremo_cloud_sensor": "^0.1.2",
-    "node-cron": "^2.0.3",
-    "promise": "^8.1.0",
-    "zh06": "^0.1.0"
+    "node-cron": "^3.0.0",
+    "switchbot_cloud_wosensorth": "^0.2.2",
+    "zh06": "^0.1.1"
   },
   "keywords": [
     "homebridge-plugin"

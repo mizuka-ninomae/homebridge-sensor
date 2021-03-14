@@ -1,9 +1,9 @@
 let Service, Characteristic;
 const sendJsonCreate = require ('./send_JSON_create.js');
-const Promise        = require ('promise');
 const cron           = require ('node-cron');
 const elasticsearch  = require ('elasticsearch');
 const NatureRemo     = require ('natureremo_cloud_sensor');
+const SwitchBot      = require ('switchbot_cloud_wosensorth');
 const MH_Z19         = require ('mh_z19');
 const ZH06           = require ('zh06');
 
@@ -16,7 +16,7 @@ module.exports = function(homebridge){
 function SensorAccessory (log, config) {
   this.log                           = log;
   this.name                          = config ["name"];
-  this.schedule                      = config ["schedule"]                         || '* */5 * * * *';
+  this.schedule                      = config ["schedule"]                         || '30 */5 * * * *';
   this.acquisition_interval          = config ["acquisition_interval"]             || 500;
   this.service                       = [];
   this.informationService            = new Service.AccessoryInformation ();
@@ -27,7 +27,7 @@ function SensorAccessory (log, config) {
     .setCharacteristic (Characteristic.SerialNumber, 'Sensor Serial Number');
   this.service.push (this.informationService);
 
-//---- Temperature Sensor ------------------------------------------------------
+//---- Temperature Sensor ---------------------------------------------------------
   this.indicate_te_sensor            = config ["indicate_te_sensor"]               || true;
   this.temperature                   = config ["temperature"]
   if (this.indicate_te_sensor) {
@@ -38,18 +38,18 @@ function SensorAccessory (log, config) {
         this.access_token            = this.temperature.nature_remo ["access_token"];
         this.device_name             = this.temperature.nature_remo ["device_name"];
         break;
-//      case 'switch_bot':
-//        this.ble_mac                 = config.temperature.switch_bot ["ble_mac"];
-      break;
+      case "switch_bot":
+        this.ble_mac                 = config.temperature.switch_bot ["ble_mac"];
+        break;
       default:
-        this.log ("Error message (provisional)");
+        this.log ("[Error] >>>> * * * The thermometer was turned off because the specified meter could not be found * * *");
         this.indicate_te_sensor      = false;
     };
     this.temperatureSensorService    = new Service.TemperatureSensor (this.name)
     this.service.push (this.temperatureSensorService);
   };
 
-//---- Humidity Sensor ---------------------------------------------------------
+//---- Humidity Sensor ------------------------------------------------------------
   this.indicate_hu_sensor            = config ["indicate_hu_sensor"]               || true;
   this.humidity                      = config ["humidity"]
   if (this.indicate_hu_sensor) {
@@ -58,20 +58,21 @@ function SensorAccessory (log, config) {
     switch (this.hu_sensor) {
       case "nature_remo":
         this.access_token            = this.humidity.nature_remo ["access_token"];
-        this.device_name             = this.humidity.nature_remo ["device_name"];
+        this.device_id               = this.humidity.nature_remo ["device_id"];
         break;
-//      case 'switch_bot':
-//        this.ble_mac                 = config.humidity.switch_bot ["ble_mac"];
-      break;
+      case "switch_bot":
+        this.access_token            = config.humidity.switch_bot ["access_token"];
+        this.device_id               = config.humidity.switch_bot ["device_id"];
+        break;
       default:
-        this.log ("Error message (provisional)");
+        this.log ("[Error] >>>> * * * The hygrometer was turned off because the specified meter could not be found * * *");
         this.indicate_hu_sensor      = false;
     };
     this.humiditySensorService       = new Service.HumiditySensor (this.name)
     this.service.push (this.humiditySensorService);
   };
 
-//---- Light Sensor ------------------------------------------------------------
+//---- Light Sensor ---------------------------------------------------------------
   this.indicate_li_sensor            = config ["indicate_li_sensor"]               || false;
   this.light                         = config ["light"]
   if (this.indicate_li_sensor) {
@@ -83,14 +84,14 @@ function SensorAccessory (log, config) {
         this.device_name             = this.light.nature_remo ["device_name"];
         break;
       default:
-        this.log ("Error message (provisional)");
+        this.log ("[Error] >>>> * * * The illuminance meter was turned off because the specified meter could not be found * * *");
         this.indicate_li_sensor      = false;
     };
     this.lightSensorService          = new Service.LightSensor (this.name)
     this.service.push (this.lightSensorService);
   };
 
-//---- CO2 Sensor --------------------------------------------------------------
+//---- CO2 Sensor -----------------------------------------------------------------
   this.indicate_co2_sensor           = config ["indicate_co2_sensor"]              || false;
   if (this.indicate_co2_sensor) {
     this.co2_val                     = null;
@@ -101,7 +102,7 @@ function SensorAccessory (log, config) {
         this.mhz19_uart_path         = config.co2.mh_z19 ["uart_path"]             || "/dev/ttyS0";
         break;
       default:
-        this.log ("Error message (provisional)");
+        this.log ("[Error] >>>> * * * The carbon dioxide sensor was turned off because the specified meter could not be found * * *");
         this.indicate_co2_sensor     = false;
     };
     this.co2_warning_level           = config.co2 ["warning_level"]                || 1500;
@@ -109,7 +110,7 @@ function SensorAccessory (log, config) {
     this.service.push (this.CarbonDioxideSensorService);
   };
 
-//---- CO Sensor ---------------------------------------------------------------
+//---- CO Sensor ------------------------------------------------------------------
   this.indicate_co_sensor            = config ["indicate_co_sensor"]               || false;
   if (this.indicate_co_sensor) {
     this.co_val                      = null;
@@ -117,14 +118,14 @@ function SensorAccessory (log, config) {
     this.co_sensor                   = config.co ["sensor"];
     switch (this.co_sensor) {
       default:
-        this.log ("Error message (provisional)");
+      this.log ("[Error] >>>> * * * The carbon monoxide sensor was turned off because the specified meter could not be found * * *");
         this.indicate_co_sensor      = false;
     };
     this.co_warning_level            = config.co ["warning_level"]                 || 9;
     this.CarbonMonoxideSensorService = new Service.CarbonMonoxideSensor (this.name);
     this.service.push (this.CarbonMonoxideSensorService);
   };
-//---- Air Quality Sensor ------------------------------------------------------
+//---- Air Quality Sensor ---------------------------------------------------------
   this.E_G_boundary                  = config ["pm_E_G_boundary"]                  || 10
   this.G_F_boundary                  = config ["pm_G_F_boundary"]                  || 15
   this.F_I_boundary                  = config ["pm_F_I_boundary"]                  || 25
@@ -142,7 +143,7 @@ function SensorAccessory (log, config) {
         this.zh06_uart_path          = config.pm10.zh06 ["uart_path"]              || "/dev/ttyS0";
         break;
       default:
-        this.log ("Error message (provisional)");
+        this.log ("[Error] >>>> * * * The PM10 sensor was turned off because the specified meter could not be found * * *");
         this.indicate_pm10_sensor    = false;
     };
   };
@@ -158,7 +159,7 @@ function SensorAccessory (log, config) {
           this.zh06_uart_path       = config.pm2_5.zh06 ["uart_path"]             || "/dev/ttyS0";
           break;
         default:
-          this.log ("Error message (provisional)");
+        this.log ("[Error] >>>> * * * The PM2.5 sensor was turned off because the specified meter could not be found * * *");
           this.indicate_pm2_5_sensor = false;
       };
     };
@@ -168,7 +169,7 @@ function SensorAccessory (log, config) {
       this.service.push (this.AirQualitySensorService);
     };
 
-//---- use_elasticsearch -------------------------------------------------------
+//---- use_elasticsearch ----------------------------------------------------------
   this.use_elasticsearch             = config ["use_elasticsearch"]                || false;
   if (this.use_elasticsearch) {
     this.host                        = config.elasticsearch_seting ["host"]        || 'localhost:9200';
@@ -182,12 +183,12 @@ function SensorAccessory (log, config) {
   });
 }
 
-//------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------
 SensorAccessory.prototype.getServices = function () {
   return this.service;
 }
 
-//------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------
 SensorAccessory.prototype.getMeasuredValue = function () {
   if (this.indicate_te_sensor) {
     switch (this.te_sensor) {
@@ -198,7 +199,6 @@ SensorAccessory.prototype.getMeasuredValue = function () {
         this.getSwitchBotMeasuredValue ();
         break;
       default:
-        this.log ("エラーメッセージテスト１");
     };
   };
 
@@ -215,7 +215,6 @@ SensorAccessory.prototype.getMeasuredValue = function () {
         }
         break;
       default:
-        this.log ("エラーメッセージテスト２");
     };
   };
 
@@ -227,7 +226,6 @@ SensorAccessory.prototype.getMeasuredValue = function () {
         }
         break;
       default:
-        this.log ("エラーメッセージテスト３");
     };
   };
 
@@ -237,14 +235,12 @@ SensorAccessory.prototype.getMeasuredValue = function () {
         this.getMhz19MeasuredValue ();
         break;
       default:
-        this.log ("エラーメッセージテスト４");
     };
   };
 
   if (this.indicate_co_sensor) {
     switch (this.co_sensor) {
       default:
-        this.log ("エラーメッセージテスト５");
     };
   };
 
@@ -254,7 +250,6 @@ SensorAccessory.prototype.getMeasuredValue = function () {
         this.getZh06MeasuredValue ();
         break;
       default:
-        this.log ("エラーメッセージテスト６");
     };
   };
 
@@ -266,7 +261,6 @@ SensorAccessory.prototype.getMeasuredValue = function () {
         }
         break;
       default:
-        this.log ("エラーメッセージテスト７");
     };
   };
 
@@ -275,7 +269,7 @@ SensorAccessory.prototype.getMeasuredValue = function () {
   };
 }
 
-//---- NatureRemo Cloud Sensor -------------------------------------------------
+//---- NatureRemo Cloud Sensor ----------------------------------------------------
 SensorAccessory.prototype.getNatureRemoMeasuredValue = function () {
   new NatureRemo (this.access_token, this.device_name, function (error, value, stderr) {
 
@@ -323,42 +317,42 @@ SensorAccessory.prototype.getNatureRemoMeasuredValue = function () {
   }.bind (this));
 }
 
-//---- SwitchBot WoSensorTH ----------------------------------------------------
+//---- SwitchBot WoSensorTH -------------------------------------------------------
 SensorAccessory.prototype.getSwitchBotMeasuredValue = function () {
-//  new SwitchBot (this.ble_mac, function (error, value, stderr) {
-//    if (this.te_sensor == ) {
-//      this.te_val = value.te
-//      if (this.te_val == null) {
-//        this.temperatureSensorService
-//          .updateCharacteristic (Characteristic.CurrentTemperature, new Error (error));
-//      }
-//      else {
-//        this.log(`<<<< [Update] Temperature: ${this.te_val}`);
-//        this.temperatureSensorService
-//          .updateCharacteristic (Characteristic.CurrentTemperature, this.te_val);
-//      };
-//    };
-//
-//    if (this.hu_sensor == ) {
-//      this.hu_val = value.hu
-//      if (this.hu_val == null) {
-//        this.humiditySensorService
-//          .updateCharacteristic (Characteristic.CurrentRelativeHumidity, new Error (error));
-//      }
-//      else {
-//        this.log(`<<<< [Update] Humidity: ${this.hu_val}`);
-//        this.humiditySensorService
-//          .updateCharacteristic (Characteristic.CurrentRelativeHumidity, this.hu_val);
-//      };
-//    };
-//  }.bind (this));
+  new SwitchBot (this.access_token, this.device_id, function (error, value, stderr) {
+    if (value == null) {
+      if (this.te_sensor == "switch_bot") {
+        this.log(`<<<< [Error] Temperature`);
+        this.temperatureSensorService
+          .updateCharacteristic (Characteristic.CurrentTemperature, new Error (error));
+      }
+      if (this.hu_sensor == "switch_bot") {
+        this.log(`<<<< [Error] Humidity`);
+        this.humiditySensorService
+          .updateCharacteristic (Characteristic.CurrentRelativeHumidity, new Error (error));
+      }
+    }
+    else {
+      if (this.te_sensor == "switch_bot") {
+        this.te_val = value.te
+        this.log(`<<<< [Update] Temperature: ${this.te_val}`);
+        this.temperatureSensorService
+          .updateCharacteristic (Characteristic.CurrentTemperature, this.te_val);
+      };
+      if (this.hu_sensor == "switch_bot") {
+        this.hu_val = value.hu
+        this.log(`<<<< [Update] Humidity: ${this.hu_val}`);
+        this.humiditySensorService
+          .updateCharacteristic (Characteristic.CurrentRelativeHumidity, this.hu_val);
+      };
+    };
+  }.bind (this));
 }
 
-//---- MH-Z19 ------------------------------------------------------------------
+//---- MH-Z19 ---------------------------------------------------------------------
 SensorAccessory.prototype.getMhz19MeasuredValue = function () {
   new MH_Z19 (this.mhz19_uart_path, function (error, value, stderr) {
-    this.co2_val = value
-    if (this.co2_val == null) {
+    if (value == null) {
       this.log(`<<<< [Error] Carbon Dioxide Level`);
       this.log(`<<<< [Error] Carbon Dioxide Detected`);
       this.CarbonDioxideSensorService
@@ -367,6 +361,7 @@ SensorAccessory.prototype.getMhz19MeasuredValue = function () {
         .updateCharacteristic (Characteristic.CarbonDioxideDetected, new Error (error));
     }
     else {
+      this.co2_val      = value;
       this.co2_detected = (this.co2_warning_level > this.co2_val) ? 0 : 1;
       this.log(`<<<< [Update] Carbon Dioxide Level: ${this.co2_val}`);
       this.log(`<<<< [Update] Carbon Dioxide Detected: ${this.co2_detected}`);
@@ -378,13 +373,11 @@ SensorAccessory.prototype.getMhz19MeasuredValue = function () {
   }.bind (this));
 }
 
-//---- ZH06 ------------------------------------------------------------------
+//---- ZH06 ---------------------------------------------------------------------
 SensorAccessory.prototype.getZh06MeasuredValue = function () {
   new ZH06 (this.zh06_uart_path, function (error, value, stderr) {
-
-    if (this.pm10_sensor == "zh06") {
-      this.pm10_val = value.pm10
-      if (this.pm10_val == null) {
+    if (value == null) {
+      if (this.pm10_sensor == "zh06") {
         this.AirQualitySensorService
           .updateCharacteristic (Characteristic.AirQuality, 0);
         this.log (`<<<< [Update] Air Quality: UNKNOWN`);
@@ -393,20 +386,7 @@ SensorAccessory.prototype.getZh06MeasuredValue = function () {
           .updateCharacteristic (Characteristic.PM10Density, new Error (error));
         this.log (`<<<< [Error] Air Quality (PM10)`);
       }
-      else {
-        this.air_quality_num1 = (this.E_G_boundary < this.pm10_val) ? 2 : 1;
-        this.air_quality_num1 = (this.G_F_boundary < this.pm10_val) ? 3 : 1;
-        this.air_quality_num1 = (this.F_I_boundary < this.pm10_val) ? 4 : 1;
-        this.air_quality_num1 = (this.I_P_boundary < this.pm10_val) ? 5 : 1;
-        this.log (`<<<< [Update] PM10 Density: ${this.pm10_val}`);
-        this.AirQualitySensorService
-          .updateCharacteristic (Characteristic.PM10Density, this.pm10_val);
-      };
-    };
-
-    if (this.pm2_5_sensor == "zh06") {
-      this.pm2_5_val = value.pm2_5
-      if (this.pm2_5_val == null) {
+      if (this.pm2_5_sensor == "zh06") {
         this.AirQualitySensorService
           .updateCharacteristic (Characteristic.AirQuality, 0);
         this.log (`<<<< [Update] Air Quality: UNKNOWN`);
@@ -415,7 +395,20 @@ SensorAccessory.prototype.getZh06MeasuredValue = function () {
           .updateCharacteristic (Characteristic.PM2_5Density, new Error (error));
         this.log (`<<<< [Error] Air Quality (PM2.5)`);
       }
-      else {
+    }
+    else {
+      if (this.pm10_sensor == "zh06") {
+        this.pm10_val         = value.pm10
+        this.air_quality_num1 = (this.E_G_boundary < this.pm10_val) ? 2 : 1;
+        this.air_quality_num1 = (this.G_F_boundary < this.pm10_val) ? 3 : 1;
+        this.air_quality_num1 = (this.F_I_boundary < this.pm10_val) ? 4 : 1;
+        this.air_quality_num1 = (this.I_P_boundary < this.pm10_val) ? 5 : 1;
+        this.log (`<<<< [Update] PM10 Density: ${this.pm10_val}`);
+        this.AirQualitySensorService
+          .updateCharacteristic (Characteristic.PM10Density, this.pm10_val);
+      };
+      if (this.pm2_5_sensor == "zh06") {
+        this.pm2_5_val        = value.pm2_5
         this.air_quality_num2 = (this.E_G_boundary < this.pm2_5_val) ? 2 : 1;
         this.air_quality_num2 = (this.G_F_boundary < this.pm2_5_val) ? 3 : 1;
         this.air_quality_num2 = (this.F_I_boundary < this.pm2_5_val) ? 4 : 1;
@@ -456,11 +449,10 @@ SensorAccessory.prototype.getZh06MeasuredValue = function () {
           break;
       }
     }
-
   }.bind (this));
 }
 
-//------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------
 SensorAccessory.prototype.setElasticsearch = function () {
   let send_json = sendJsonCreate.main (this.index, this.title, this.date_format, this.indicate_te_sensor, this.te_val, this.indicate_hu_sensor, this.hu_val, this.indicate_li_sensor, this.li_val, this.indicate_co2_sensor, this.co2_val, this.indicate_co_sensor, this.co_val, this.indicate_pm10_sensor, this.pm10_val, this.indicate_pm2_5_sensor, this.pm2_5_val);
   let client    = new elasticsearch.Client ({ host: this.host });
