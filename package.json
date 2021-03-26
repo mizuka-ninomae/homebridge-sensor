@@ -1,6 +1,6 @@
 {
   "name": "homebridge-sensor",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "main": "index.js",
   "scripts": {
     "lint": "echo \"Warning: lint is not used\" && exit 0",
@@ -11,12 +11,13 @@
     "homebridge": ">=1.0.0"
   },
   "dependencies": {
-    "cron": "^1.8.2",
     "elasticsearch": "^16.7.2",
     "mh_z19": "^0.1.7",
     "moment": "^2.29.1",
     "natureremo_cloud_sensor": "^0.1.2",
     "node-cron": "^3.0.0",
+    "sanwa_che-tphu5": "^0.1.2",
+    "switchbot-local-wosensorth": "^0.1.1",
     "switchbot_cloud_wosensorth": "^0.2.2",
     "zh06": "^0.1.1"
   },
@@ -34,5 +35,5 @@
   },
   "homepage": "https://github.com/mizuka-ninomae/homebridge-sensor#readme",
   "devDependencies": {},
-  "description": ""
+  "description": "α Version"
 }

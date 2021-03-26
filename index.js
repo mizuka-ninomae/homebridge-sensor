@@ -3,7 +3,9 @@ const sendJsonCreate = require ('./send_JSON_create.js');
 const cron           = require ('node-cron');
 const elasticsearch  = require ('elasticsearch');
 const NatureRemo     = require ('natureremo_cloud_sensor');
-const SwitchBot      = require ('switchbot_cloud_wosensorth');
+const SBCloud        = require ('switchbot_cloud_wosensorth');
+const SBLocal        = require ('switchbot_local_wosensorth');
+const CheTPHU5       = require ('sanwa_che-tphu5');
 const MH_Z19         = require ('mh_z19');
 const ZH06           = require ('zh06');
 
@@ -16,8 +18,8 @@ module.exports = function(homebridge){
 function SensorAccessory (log, config) {
   this.log                           = log;
   this.name                          = config ["name"];
-  this.schedule                      = config ["schedule"]                         || '30 */5 * * * *';
-  this.acquisition_interval          = config ["acquisition_interval"]             || 500;
+  this.schedule                      = config ["schedule"]                               || '30 */5 * * * *';
+  this.acquisition_interval          = config ["acquisition_interval"]                   || 500;
   this.service                       = [];
   this.informationService            = new Service.AccessoryInformation ();
 
@@ -27,19 +29,29 @@ function SensorAccessory (log, config) {
     .setCharacteristic (Characteristic.SerialNumber, 'Sensor Serial Number');
   this.service.push (this.informationService);
 
-//---- Temperature Sensor ---------------------------------------------------------
-  this.indicate_te_sensor            = config ["indicate_te_sensor"]               || true;
+//---- Temperature Sensor ----------------------------------------------------------------
+  this.indicate_te_sensor            = config ["indicate_te_sensor"]                     || true;
   this.temperature                   = config ["temperature"]
   if (this.indicate_te_sensor) {
     this.te_val                      = null;
     this.te_sensor                   = this.temperature ["sensor"];
     switch (this.te_sensor) {
       case "nature_remo":
-        this.access_token            = this.temperature.nature_remo ["access_token"];
-        this.device_name             = this.temperature.nature_remo ["device_name"];
+        this.nr_access_token         = this.temperature.nature_remo ["access_token"];
+        this.nr_device_name          = this.temperature.nature_remo ["device_name"];
         break;
       case "switch_bot":
-        this.ble_mac                 = config.temperature.switch_bot ["ble_mac"];
+      case "switch_bot_cloud":
+        this.sb_access_token         = config.humidity.switch_bot ["access_token"];
+        this.sb_device_id            = config.humidity.switch_bot ["device_id"];
+        break;
+      case "switch_bot_local":
+        this.sb_ble_mac              = config.temperature.switch_bot ["ble_mac"];
+        this.noble_ctl_path          = config.temperature.switch_bot ["noble_ctl_path"]  || "/usr/local/lib/node_modules/homebridge-sensor/node_modules/switchbot_local_wosensorth/";
+        break;
+      case "che-tphu5":
+        this.tp5_ble_mac             = config.temperature.switch_bot ["ble_mac"];
+        this.noble_ctl_path          = config.temperature.switch_bot ["noble_ctl_path"]  || "/usr/local/lib/node_modules/homebridge-sensor/node_modules/sanwa_che-tphu5/";
         break;
       default:
         this.log ("[Error] >>>> * * * The thermometer was turned off because the specified meter could not be found * * *");
@@ -49,20 +61,29 @@ function SensorAccessory (log, config) {
     this.service.push (this.temperatureSensorService);
   };
 
-//---- Humidity Sensor ------------------------------------------------------------
-  this.indicate_hu_sensor            = config ["indicate_hu_sensor"]               || true;
+//---- Humidity Sensor -------------------------------------------------------------------
+  this.indicate_hu_sensor            = config ["indicate_hu_sensor"]                     || true;
   this.humidity                      = config ["humidity"]
   if (this.indicate_hu_sensor) {
     this.hu_val                      = null;
     this.hu_sensor                   = this.humidity ["sensor"];
     switch (this.hu_sensor) {
       case "nature_remo":
-        this.access_token            = this.humidity.nature_remo ["access_token"];
-        this.device_id               = this.humidity.nature_remo ["device_id"];
+        this.nr_access_token         = this.humidity.nature_remo ["access_token"];
+        this.nr_device_id            = this.humidity.nature_remo ["device_id"];
         break;
       case "switch_bot":
-        this.access_token            = config.humidity.switch_bot ["access_token"];
-        this.device_id               = config.humidity.switch_bot ["device_id"];
+      case "switch_bot_cloud":
+        this.sb_access_token         = config.humidity.switch_bot ["access_token"];
+        this.sb_device_id            = config.humidity.switch_bot ["device_id"];
+        break;
+      case "switch_bot_local":
+        this.sb_ble_mac              = config.temperature.switch_bot ["ble_mac"];
+        this.noble_ctl_path          = config.temperature.switch_bot ["noble_ctl_path"]  || "/usr/local/lib/node_modules/homebridge-sensor/node_modules/switchbot_local_wosensorth/";
+        break;
+      case "che-tphu5":
+        this.tp5_ble_mac             = config.temperature.switch_bot ["ble_mac"];
+        this.noble_ctl_path          = config.temperature.switch_bot ["noble_ctl_path"]  || "/usr/local/lib/node_modules/homebridge-sensor/node_modules/sanwa_che-tphu5/";
         break;
       default:
         this.log ("[Error] >>>> * * * The hygrometer was turned off because the specified meter could not be found * * *");
@@ -72,16 +93,20 @@ function SensorAccessory (log, config) {
     this.service.push (this.humiditySensorService);
   };
 
-//---- Light Sensor ---------------------------------------------------------------
-  this.indicate_li_sensor            = config ["indicate_li_sensor"]               || false;
+//---- Light Sensor ----------------------------------------------------------------------
+  this.indicate_li_sensor            = config ["indicate_li_sensor"]                     || false;
   this.light                         = config ["light"]
   if (this.indicate_li_sensor) {
     this.li_val                      = null;
     this.li_sensor                   = config.light ["sensor"];
     switch (this.li_sensor) {
       case "nature_remo":
-        this.access_token            = this.light.nature_remo ["access_token"];
-        this.device_name             = this.light.nature_remo ["device_name"];
+        this.nr_access_token         = this.light.nature_remo ["access_token"];
+        this.nr_device_name          = this.light.nature_remo ["device_name"];
+        break;
+      case "che-tphu5":
+        this.tp5_ble_mac             = config.temperature.switch_bot ["ble_mac"];
+        this.noble_ctl_path          = config.temperature.switch_bot ["noble_ctl_path"]  || "/usr/local/lib/node_modules/homebridge-sensor/node_modules/sanwa_che-tphu5/";
         break;
       default:
         this.log ("[Error] >>>> * * * The illuminance meter was turned off because the specified meter could not be found * * *");
@@ -91,27 +116,27 @@ function SensorAccessory (log, config) {
     this.service.push (this.lightSensorService);
   };
 
-//---- CO2 Sensor -----------------------------------------------------------------
-  this.indicate_co2_sensor           = config ["indicate_co2_sensor"]              || false;
+//---- CO2 Sensor ------------------------------------------------------------------------
+  this.indicate_co2_sensor           = config ["indicate_co2_sensor"]                    || false;
   if (this.indicate_co2_sensor) {
     this.co2_val                     = null;
     this.co2_detected                = null;
     this.co2_sensor                  = config.co2 ["sensor"];
     switch (this.co2_sensor) {
       case "mh_z19":
-        this.mhz19_uart_path         = config.co2.mh_z19 ["uart_path"]             || "/dev/ttyS0";
+        this.mhz19_uart_path         = config.co2.mh_z19 ["uart_path"]                   || "/dev/ttyS0";
         break;
       default:
         this.log ("[Error] >>>> * * * The carbon dioxide sensor was turned off because the specified meter could not be found * * *");
         this.indicate_co2_sensor     = false;
     };
-    this.co2_warning_level           = config.co2 ["warning_level"]                || 1500;
+    this.co2_warning_level           = config.co2 ["warning_level"]                      || 1500;
     this.CarbonDioxideSensorService  = new Service.CarbonDioxideSensor (this.name);
     this.service.push (this.CarbonDioxideSensorService);
   };
 
-//---- CO Sensor ------------------------------------------------------------------
-  this.indicate_co_sensor            = config ["indicate_co_sensor"]               || false;
+//---- CO Sensor -------------------------------------------------------------------------
+  this.indicate_co_sensor            = config ["indicate_co_sensor"]                     || false;
   if (this.indicate_co_sensor) {
     this.co_val                      = null;
     this.co_detected                 = null;
@@ -121,26 +146,26 @@ function SensorAccessory (log, config) {
       this.log ("[Error] >>>> * * * The carbon monoxide sensor was turned off because the specified meter could not be found * * *");
         this.indicate_co_sensor      = false;
     };
-    this.co_warning_level            = config.co ["warning_level"]                 || 9;
+    this.co_warning_level            = config.co ["warning_level"]                       || 9;
     this.CarbonMonoxideSensorService = new Service.CarbonMonoxideSensor (this.name);
     this.service.push (this.CarbonMonoxideSensorService);
   };
-//---- Air Quality Sensor ---------------------------------------------------------
-  this.E_G_boundary                  = config ["pm_E_G_boundary"]                  || 10
-  this.G_F_boundary                  = config ["pm_G_F_boundary"]                  || 15
-  this.F_I_boundary                  = config ["pm_F_I_boundary"]                  || 25
-  this.I_P_boundary                  = config ["pm_I_P_boundary"]                  || 35
+//---- Air Quality Sensor ----------------------------------------------------------------
+  this.E_G_boundary                  = config ["pm_E_G_boundary"]                        || 10
+  this.G_F_boundary                  = config ["pm_G_F_boundary"]                        || 15
+  this.F_I_boundary                  = config ["pm_F_I_boundary"]                        || 25
+  this.I_P_boundary                  = config ["pm_I_P_boundary"]                        || 35
   this.air_quality_num               = null;
 
-//---- PM10 Sensor ---------------------------------------------------------------
-  this.indicate_pm10_sensor          = config ["indicate_pm10_sensor"]             || false;
+//---- PM10 Sensor ----------------------------------------------------------------------
+  this.indicate_pm10_sensor          = config ["indicate_pm10_sensor"]                   || false;
   if (this.indicate_pm10_sensor) {
     this.pm10_val                    = null;
     this.air_quality_num1            = null;
     this.pm10_sensor                 = config.pm10 ["sensor"];
     switch (this.pm10_sensor) {
       case "zh06":
-        this.zh06_uart_path          = config.pm10.zh06 ["uart_path"]              || "/dev/ttyS0";
+        this.zh06_uart_path          = config.pm10.zh06 ["uart_path"]                    || "/dev/ttyS0";
         break;
       default:
         this.log ("[Error] >>>> * * * The PM10 sensor was turned off because the specified meter could not be found * * *");
@@ -148,15 +173,15 @@ function SensorAccessory (log, config) {
     };
   };
 
-//---- PM2.5 Sensor ---------------------------------------------------------------
-    this.indicate_pm2_5_sensor       = config ["indicate_pm2_5_sensor"]            || false;
+//---- PM2.5 Sensor ---------------------------------------------------------------------
+    this.indicate_pm2_5_sensor       = config ["indicate_pm2_5_sensor"]                  || false;
     if (this.indicate_pm2_5_sensor) {
       this.pm2_5_val                 = null;
       this.air_quality_num2          = null;
       this.pm2_5_sensor              = config.pm2_5 ["sensor"];
       switch (this.pm2_5_sensor) {
         case "zh06":
-          this.zh06_uart_path       = config.pm2_5.zh06 ["uart_path"]             || "/dev/ttyS0";
+          this.zh06_uart_path       = config.pm2_5.zh06 ["uart_path"]                   || "/dev/ttyS0";
           break;
         default:
         this.log ("[Error] >>>> * * * The PM2.5 sensor was turned off because the specified meter could not be found * * *");
@@ -183,12 +208,12 @@ function SensorAccessory (log, config) {
   });
 }
 
-//---------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------
 SensorAccessory.prototype.getServices = function () {
   return this.service;
 }
 
-//---------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------
 SensorAccessory.prototype.getMeasuredValue = function () {
   if (this.indicate_te_sensor) {
     switch (this.te_sensor) {
@@ -196,7 +221,14 @@ SensorAccessory.prototype.getMeasuredValue = function () {
         this.getNatureRemoMeasuredValue ();
         break;
       case "switch_bot":
-        this.getSwitchBotMeasuredValue ();
+      case "switch_bot_cloud":
+        this.getSBCloudMeasuredValue ();
+        break;
+      case "switch_bot_local":
+        this.getSBLocalMeasuredValue ();
+        break;
+      case "che-tphu5":
+        this.getCheTphu5MeasuredValue ();
         break;
       default:
     };
@@ -210,8 +242,19 @@ SensorAccessory.prototype.getMeasuredValue = function () {
         }
         break;
       case "switch_bot":
-        if (this.te_sensor != "switch_bot") {
-          this.getSwitchBotMeasuredValue ();
+      case "switch_bot_cloud":
+        if ((this.te_sensor != "switch_bot") || (this.te_sensor != "switch_bot_cloud")) {
+          this.getSBCloudMeasuredValue ();
+        }
+        break;
+      case "switch_bot_local":
+        if (this.te_sensor != "switch_bot_local") {
+          this.getSBLocalMeasuredValue ();
+        }
+        break;
+      case "che-tphu5":
+        if (this.te_sensor != "che-tphu5") {
+          this.getCheTphu5MeasuredValue ();
         }
         break;
       default:
@@ -221,8 +264,13 @@ SensorAccessory.prototype.getMeasuredValue = function () {
   if (this.indicate_li_sensor) {
     switch (this.li_sensor) {
       case "nature_remo":
-        if ((this.te_sensor != "nature_remo") && (this.hu_sensor != "nature_remo")) {
+        if ((this.te_sensor != "nature_remo") || (this.hu_sensor != "nature_remo")) {
           this.getNatureRemoMeasuredValue ();
+        }
+        break;
+      case "che-tphu5":
+        if ((this.te_sensor != "che-tphu5") || (this.hu_sensor != "che-tphu5")) {
+          this.getCheTphu5MeasuredValue ();
         }
         break;
       default:
@@ -269,77 +317,72 @@ SensorAccessory.prototype.getMeasuredValue = function () {
   };
 }
 
-//---- NatureRemo Cloud Sensor ----------------------------------------------------
+//---- NatureRemo Cloud Sensor -----------------------------------------------------------
 SensorAccessory.prototype.getNatureRemoMeasuredValue = function () {
-  new NatureRemo (this.access_token, this.device_name, function (error, value, stderr) {
-
-    if (this.te_sensor == "nature_remo") {
-      this.te_val = value.te
-      if (this.te_val == null) {
+  new NatureRemo (this.nr_access_token, this.nr_device_name, function (error, value, stderr) {
+    if (value == null) {
+      if (this.te_sensor == "nature_remo") {
         this.log(`<<<< [Error] Temperature`);
         this.temperatureSensorService
           .updateCharacteristic (Characteristic.CurrentTemperature, new Error (error));
       }
-      else {
-        this.log(`<<<< [Update] Temperature: ${this.te_val}`);
-        this.temperatureSensorService
-          .updateCharacteristic (Characteristic.CurrentTemperature, this.te_val);
-      };
-    };
-
-    if (this.hu_sensor == "nature_remo") {
-      this.hu_val = value.hu
-      if (this.hu_val == null) {
+      if (this.hu_sensor == "nature_remo") {
         this.log(`<<<< [Error] Humidity`);
         this.humiditySensorService
           .updateCharacteristic (Characteristic.CurrentRelativeHumidity, new Error (error));
       }
-      else {
-        this.log(`<<<< [Update] Humidity: ${this.hu_val}`);
-        this.humiditySensorService
-          .updateCharacteristic (Characteristic.CurrentRelativeHumidity, this.hu_val);
-      };
-    };
-
-    if (this.li_sensor == "nature_remo") {
-      this.li_val = value.li
-      if (this.li_val == null) {
+      if (this.li_sensor == "nature_remo") {
         this.log(`<<<< [Error] Light Level`);
         this.lightSensorService
           .updateCharacteristic (Characteristic.CurrentAmbientLightLevel, new Error (error));
       }
-      else {
+    }
+    else {
+      if (this.te_sensor == "nature_remo") {
+        this.te_val = value.te
+        this.log(`<<<< [Update] Temperature: ${this.te_val}`);
+        this.temperatureSensorService
+          .updateCharacteristic (Characteristic.CurrentTemperature, this.te_val);
+      };
+      if (this.hu_sensor == "nature_remo") {
+        this.hu_val = value.hu
+        this.log(`<<<< [Update] Humidity: ${this.hu_val}`);
+        this.humiditySensorService
+          .updateCharacteristic (Characteristic.CurrentRelativeHumidity, this.hu_val);
+      };
+      if (this.li_sensor == "nature_remo") {
+        this.li_val = value.li
         this.log(`<<<< [Update] Light Level: ${this.li_val}`);
         this.lightSensorService
-          .updateCharacteristic (Characteristic.CurrentAmbientLightLevel, this.li_val);
+        .updateCharacteristic (Characteristic.CurrentAmbientLightLevel, this.li_val);
       };
     };
   }.bind (this));
 }
 
-//---- SwitchBot WoSensorTH -------------------------------------------------------
-SensorAccessory.prototype.getSwitchBotMeasuredValue = function () {
-  new SwitchBot (this.access_token, this.device_id, function (error, value, stderr) {
+//---- SwitchBot Cloud WoSensorTH --------------------------------------------------------
+SensorAccessory.prototype.getSBCloudMeasuredValue = function () {
+  new SBCloud (this.ble_mac, this.device_id, function (error, value, stderr) {
     if (value == null) {
-      if (this.te_sensor == "switch_bot") {
+      if ((this.te_sensor == "switch_bot") || (this.te_sensor == "switch_bot_cloud")) {
         this.log(`<<<< [Error] Temperature`);
         this.temperatureSensorService
           .updateCharacteristic (Characteristic.CurrentTemperature, new Error (error));
       }
-      if (this.hu_sensor == "switch_bot") {
+      if ((this.hu_sensor == "switch_bot") || (this.hu_sensor == "switch_bot_cloud")) {
         this.log(`<<<< [Error] Humidity`);
         this.humiditySensorService
           .updateCharacteristic (Characteristic.CurrentRelativeHumidity, new Error (error));
       }
     }
     else {
-      if (this.te_sensor == "switch_bot") {
+      if ((this.te_sensor == "switch_bot") || (this.te_sensor == "switch_bot_cloud")) {
         this.te_val = value.te
         this.log(`<<<< [Update] Temperature: ${this.te_val}`);
         this.temperatureSensorService
           .updateCharacteristic (Characteristic.CurrentTemperature, this.te_val);
       };
-      if (this.hu_sensor == "switch_bot") {
+      if ((this.hu_sensor == "switch_bot") || (this.hu_sensor == "switch_bot_cloud")) {
         this.hu_val = value.hu
         this.log(`<<<< [Update] Humidity: ${this.hu_val}`);
         this.humiditySensorService
@@ -349,7 +392,82 @@ SensorAccessory.prototype.getSwitchBotMeasuredValue = function () {
   }.bind (this));
 }
 
-//---- MH-Z19 ---------------------------------------------------------------------
+//---- SwitchBot Local WoSensorTH --------------------------------------------------------
+SensorAccessory.prototype.getSBLocalMeasuredValue = function () {
+  new SBLocal (this.sb_blu_mac, this.noble_ctl_path, function (error, value, stderr) {
+    if (value == null) {
+      if (this.te_sensor == "switch_bot_local") {
+        this.log(`<<<< [Error] Temperature`);
+        this.temperatureSensorService
+          .updateCharacteristic (Characteristic.CurrentTemperature, new Error (error));
+      }
+      if (this.hu_sensor == "switch_bot_local") {
+        this.log(`<<<< [Error] Humidity`);
+        this.humiditySensorService
+          .updateCharacteristic (Characteristic.CurrentRelativeHumidity, new Error (error));
+      }
+    }
+    else {
+      if (this.te_sensor == "switch_bot_local") {
+        this.te_val = value.te
+        this.log(`<<<< [Update] Temperature: ${this.te_val}`);
+        this.temperatureSensorService
+          .updateCharacteristic (Characteristic.CurrentTemperature, this.te_val);
+      };
+      if (this.hu_sensor == "switch_bot_local") {
+        this.hu_val = value.hu
+        this.log(`<<<< [Update] Humidity: ${this.hu_val}`);
+        this.humiditySensorService
+          .updateCharacteristic (Characteristic.CurrentRelativeHumidity, this.hu_val);
+      };
+    };
+  }.bind (this));
+}
+
+//---- Sanwa CHE-TPHU5 -------------------------------------------------------------------
+SensorAccessory.prototype.getCheTphu5MeasuredValue = function () {
+  new CheTPHU5 (this.sb_blu_mac, this.noble_ctl_path, function (error, value, stderr) {
+    if (value == null) {
+      if (this.te_sensor == "che-tphu5") {
+        this.log(`<<<< [Error] Temperature`);
+        this.temperatureSensorService
+          .updateCharacteristic (Characteristic.CurrentTemperature, new Error (error));
+      }
+      if (this.hu_sensor == "che-tphu5") {
+        this.log(`<<<< [Error] Humidity`);
+        this.humiditySensorService
+          .updateCharacteristic (Characteristic.CurrentRelativeHumidity, new Error (error));
+      }
+      if (this.li_sensor == "che-tphu5") {
+        this.log(`<<<< [Error] Light Level`);
+        this.lightSensorService
+          .updateCharacteristic (Characteristic.CurrentAmbientLightLevel, new Error (error));
+      }
+    }
+    else {
+      if (this.te_sensor == "che-tphu5") {
+        this.te_val = value.te
+        this.log(`<<<< [Update] Temperature: ${this.te_val}`);
+        this.temperatureSensorService
+          .updateCharacteristic (Characteristic.CurrentTemperature, this.te_val);
+      };
+      if (this.hu_sensor == "che-tphu5") {
+        this.hu_val = value.hu
+        this.log(`<<<< [Update] Humidity: ${this.hu_val}`);
+        this.humiditySensorService
+          .updateCharacteristic (Characteristic.CurrentRelativeHumidity, this.hu_val);
+      };
+      if (this.li_sensor == "che-tphu5") {
+        this.li_val = value.li
+        this.log(`<<<< [Update] Light Level: ${this.li_val}`);
+        this.lightSensorService
+        .updateCharacteristic (Characteristic.CurrentAmbientLightLevel, this.li_val);
+      };
+    };
+  }.bind (this));
+}
+
+//---- MH-Z19 ----------------------------------------------------------------------------
 SensorAccessory.prototype.getMhz19MeasuredValue = function () {
   new MH_Z19 (this.mhz19_uart_path, function (error, value, stderr) {
     if (value == null) {
@@ -373,7 +491,7 @@ SensorAccessory.prototype.getMhz19MeasuredValue = function () {
   }.bind (this));
 }
 
-//---- ZH06 ---------------------------------------------------------------------
+//---- ZH06 ----------------------------------------------------------------------------
 SensorAccessory.prototype.getZh06MeasuredValue = function () {
   new ZH06 (this.zh06_uart_path, function (error, value, stderr) {
     if (value == null) {
@@ -452,7 +570,7 @@ SensorAccessory.prototype.getZh06MeasuredValue = function () {
   }.bind (this));
 }
 
-//---------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------
 SensorAccessory.prototype.setElasticsearch = function () {
   let send_json = sendJsonCreate.main (this.index, this.title, this.date_format, this.indicate_te_sensor, this.te_val, this.indicate_hu_sensor, this.hu_val, this.indicate_li_sensor, this.li_val, this.indicate_co2_sensor, this.co2_val, this.indicate_co_sensor, this.co_val, this.indicate_pm10_sensor, this.pm10_val, this.indicate_pm2_5_sensor, this.pm2_5_val);
   let client    = new elasticsearch.Client ({ host: this.host });
