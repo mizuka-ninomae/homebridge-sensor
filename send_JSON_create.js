@@ -2,7 +2,7 @@ const moment        = require ('moment');
 
 class SendJsonCreate {
   constructor () {}
-  
+
   main (index, title, date_format, indicate_te_sensor, te_val, indicate_hu_sensor, hu_val, indicate_li_sensor, li_val, indicate_co2_sensor, co2_val, indicate_co_sensor, co_val, indicate_pm10_sensor, pm10_val, indicate_pm2_5_sensor, pm2_5_val) {
     this.index                 = index;
     this.title                 = title;
@@ -22,7 +22,7 @@ class SendJsonCreate {
     this.indicate_pm2_5_sensor = indicate_pm2_5_sensor;
     this.pm2_5_val             = pm2_5_val;
 
-    let date = moment ().format (this.date_format);
+    let date = moment ().utc ().format (this.date_format);
     let body = {};
     if (this.indicate_te_sensor) {
       if (this.indicate_hu_sensor) {

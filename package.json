@@ -1,6 +1,6 @@
 {
   "name": "homebridge-sensor",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "main": "index.js",
   "scripts": {
     "lint": "echo \"Warning: lint is not used\" && exit 0",
@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "elasticsearch": "^16.7.2",
+    "govee_h5075": "^0.1.0",
     "mh_z19": "^0.1.7",
     "moment": "^2.29.1",
     "natureremo_cloud_sensor": "^0.1.2",

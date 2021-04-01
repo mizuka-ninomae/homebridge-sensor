@@ -6,8 +6,10 @@ const NatureRemo     = require ('natureremo_cloud_sensor');
 const SBCloud        = require ('switchbot_cloud_wosensorth');
 const SBLocal        = require ('switchbot_local_wosensorth');
 const CheTPHU5       = require ('sanwa_che-tphu5');
+const H5075          = require ('govee_h5075');
 const MH_Z19         = require ('mh_z19');
 const ZH06           = require ('zh06');
+
 
 module.exports = function(homebridge){
   Service           = homebridge.hap.Service;
@@ -50,11 +52,15 @@ function SensorAccessory (log, config) {
         break;
       case "switch_bot_local":
         this.sb_ble_mac              = config.temperature.switch_bot_local ["ble_mac"];
-        this.noble_ctl_path          = config.temperature.switch_bot_local ["noble_ctl_path"]  || "/usr/local/lib/node_modules/homebridge-sensor/node_modules/switchbot_local_wosensorth/";
+        this.ble_ctl_path            = config.temperature.switch_bot_local ["ble_ctl_path"]    || "/usr/local/lib/node_modules/homebridge-sensor/node_modules/switchbot_local_wosensorth/";
         break;
       case "che_tphu5":
         this.tp5_ble_mac             = config.temperature.che_tphu5 ["ble_mac"];
-        this.noble_ctl_path          = config.temperature.che_tphu5 ["noble_ctl_path"]         || "/usr/local/lib/node_modules/homebridge-sensor/node_modules/sanwa_che-tphu5/";
+        this.ble_ctl_path            = config.temperature.che_tphu5 ["ble_ctl_path"]           || "/usr/local/lib/node_modules/homebridge-sensor/node_modules/sanwa_che-tphu5/";
+        break;
+      case "h5075":
+        this.h5075_ble_mac           = config.temperature.h5075 ["ble_mac"];
+        this.ble_ctl_path            = config.temperature.h5075 ["ble_ctl_path"]               || "/usr/local/lib/node_modules/homebridge-sensor/node_modules/govee_h5075/";
         break;
       default:
         this.log ("[Error] >>>> * * * The thermometer was turned off because the specified meter could not be found * * *");
@@ -76,8 +82,8 @@ function SensorAccessory (log, config) {
         this.nr_device_id            = this.humidity.nature_remo ["device_id"];
         break;
       case "switch_bot":
-      this.sb_access_token         = config.humidity.switch_bot ["access_token"];
-      this.sb_device_id            = config.humidity.switch_bot ["device_id"];
+      this.sb_access_token           = config.humidity.switch_bot ["access_token"];
+      this.sb_device_id              = config.humidity.switch_bot ["device_id"];
       break;
       case "switch_bot_cloud":
         this.sb_access_token         = config.humidity.switch_bot_cloud ["access_token"];
@@ -85,11 +91,15 @@ function SensorAccessory (log, config) {
         break;
       case "switch_bot_local":
         this.sb_ble_mac              = config.humidity.switch_bot_local ["ble_mac"];
-        this.noble_ctl_path          = config.humidity.switch_bot_local ["noble_ctl_path"]     || "/usr/local/lib/node_modules/homebridge-sensor/node_modules/switchbot_local_wosensorth/";
+        this.ble_ctl_path            = config.humidity.switch_bot_local ["ble_ctl_path"]       || "/usr/local/lib/node_modules/homebridge-sensor/node_modules/switchbot_local_wosensorth/";
         break;
       case "che_tphu5":
         this.tp5_ble_mac             = config.humidity.che_tphu5 ["ble_mac"];
-        this.noble_ctl_path          = config.humidity.che_tphu5 ["noble_ctl_path"]            || "/usr/local/lib/node_modules/homebridge-sensor/node_modules/sanwa_che-tphu5/";
+        this.ble_ctl_path            = config.humidity.che_tphu5 ["ble_ctl_path"]              || "/usr/local/lib/node_modules/homebridge-sensor/node_modules/sanwa_che-tphu5/";
+        break;
+      case "h5075":
+        this.h5075_ble_mac           = config.humidity.h5075 ["ble_mac"];
+        this.ble_ctl_path            = config.humidity.h5075 ["ble_ctl_path"]                  || "/usr/local/lib/node_modules/homebridge-sensor/node_modules/govee_h5075/";
         break;
       default:
         this.log ("[Error] >>>> * * * The hygrometer was turned off because the specified meter could not be found * * *");
@@ -112,7 +122,7 @@ function SensorAccessory (log, config) {
         break;
       case "che_tphu5":
         this.tp5_ble_mac             = config.light.che_tphu5 ["ble_mac"];
-        this.noble_ctl_path          = config.light.che_tphu5 ["noble_ctl_path"]               || "/usr/local/lib/node_modules/homebridge-sensor/node_modules/sanwa_che-tphu5/";
+        this.ble_ctl_path            = config.light.che_tphu5 ["ble_ctl_path"]                 || "/usr/local/lib/node_modules/homebridge-sensor/node_modules/sanwa_che-tphu5/";
         break;
       default:
         this.log ("[Error] >>>> * * * The illuminance meter was turned off because the specified meter could not be found * * *");
@@ -236,6 +246,9 @@ SensorAccessory.prototype.getMeasuredValue = function () {
       case "che_tphu5":
         this.getCheTphu5MeasuredValue ();
         break;
+      case "h5075":
+        this.getH5075MeasuredValue ();
+        break;
       default:
     };
   };
@@ -261,6 +274,11 @@ SensorAccessory.prototype.getMeasuredValue = function () {
       case "che_tphu5":
         if (this.te_sensor != "che_tphu5") {
           this.getCheTphu5MeasuredValue ();
+        }
+        break;
+      case "h5075":
+        if (this.te_sensor != "h5075") {
+          this.getH5075MeasuredValue ();
         }
         break;
       default:
@@ -400,7 +418,7 @@ SensorAccessory.prototype.getSBCloudMeasuredValue = function () {
 
 //---- SwitchBot Local WoSensorTH --------------------------------------------------------
 SensorAccessory.prototype.getSBLocalMeasuredValue = function () {
-  new SBLocal (this.sb_ble_mac, this.noble_ctl_path, function (error, value, stderr) {
+  new SBLocal (this.sb_ble_mac, this.ble_ctl_path, function (error, value, stderr) {
     if (value == null) {
       if (this.te_sensor == "switch_bot_local") {
         this.log(`<<<< [Error] Temperature`);
@@ -432,7 +450,7 @@ SensorAccessory.prototype.getSBLocalMeasuredValue = function () {
 
 //---- Sanwa CHE-TPHU5 -------------------------------------------------------------------
 SensorAccessory.prototype.getCheTphu5MeasuredValue = function () {
-  new CheTPHU5 (this.tp5_ble_mac, this.noble_ctl_path, function (error, value, stderr) {
+  new CheTPHU5 (this.tp5_ble_mac, this.ble_ctl_path, function (error, value, stderr) {
     if (value == null) {
       if (this.te_sensor == "che_tphu5") {
         this.log(`<<<< [Error] Temperature`);
@@ -468,6 +486,38 @@ SensorAccessory.prototype.getCheTphu5MeasuredValue = function () {
         this.log(`<<<< [Update] Light Level: ${this.li_val}`);
         this.lightSensorService
         .updateCharacteristic (Characteristic.CurrentAmbientLightLevel, this.li_val);
+      };
+    };
+  }.bind (this));
+}
+
+//---- Govee H5075 -----------------------------------------------------------------------
+SensorAccessory.prototype.getH5075MeasuredValue = function () {
+  new H5075 (this.h5075_ble_mac, this.ble_ctl_path, function (error, value, stderr) {
+    if (value == null) {
+      if (this.te_sensor == "h5075") {
+        this.log(`<<<< [Error] Temperature`);
+        this.temperatureSensorService
+          .updateCharacteristic (Characteristic.CurrentTemperature, new Error (error));
+      }
+      if (this.hu_sensor == "h5075") {
+        this.log(`<<<< [Error] Humidity`);
+        this.humiditySensorService
+          .updateCharacteristic (Characteristic.CurrentRelativeHumidity, new Error (error));
+      }
+    }
+    else {
+      if (this.te_sensor == "h5075") {
+        this.te_val = value.te
+        this.log(`<<<< [Update] Temperature: ${this.te_val}`);
+        this.temperatureSensorService
+          .updateCharacteristic (Characteristic.CurrentTemperature, this.te_val);
+      };
+      if (this.hu_sensor == "h5075") {
+        this.hu_val = value.hu
+        this.log(`<<<< [Update] Humidity: ${this.hu_val}`);
+        this.humiditySensorService
+          .updateCharacteristic (Characteristic.CurrentRelativeHumidity, this.hu_val);
       };
     };
   }.bind (this));
