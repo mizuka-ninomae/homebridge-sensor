@@ -7,6 +7,7 @@ const SBCloud        = require ('switchbot_cloud_wosensorth');
 const SBLocal        = require ('switchbot_local_wosensorth');
 const CheTPHU5       = require ('sanwa_che-tphu5');
 const H5075          = require ('govee_h5075');
+const ThermoBeacon   = require ('thermo_beacon_ws08');
 const MH_Z19         = require ('mh_z19');
 const ZH06           = require ('zh06');
 
@@ -56,11 +57,15 @@ function SensorAccessory (log, config) {
         break;
       case "che_tphu5":
         this.tp5_ble_mac             = config.temperature.che_tphu5 ["ble_mac"];
-        this.ble_ctl_path            = config.temperature.che_tphu5 ["ble_ctl_path"]           || "/usr/local/lib/node_modules/homebridge-sensor/node_modules/sanwa_che-tphu5/";
+        this.npble_ctl_path          = config.temperature.che_tphu5 ["ble_ctl_path"]           || "/usr/local/lib/node_modules/homebridge-sensor/node_modules/sanwa_che-tphu5/";
         break;
       case "h5075":
         this.h5075_ble_mac           = config.temperature.h5075 ["ble_mac"];
         this.ble_ctl_path            = config.temperature.h5075 ["ble_ctl_path"]               || "/usr/local/lib/node_modules/homebridge-sensor/node_modules/govee_h5075/";
+        break;
+      case "thermo_beacon":
+        this.t_beacon_ble_mac        = config.temperature.thermo_beacon ["ble_mac"];
+        this.ble_ctl_path            = config.temperature.thermo_beacon ["ble_ctl_path"]       || "/usr/local/lib/node_modules/homebridge-sensor/node_modules/govee_h5075/";
         break;
       default:
         this.log ("[Error] >>>> * * * The thermometer was turned off because the specified meter could not be found * * *");
@@ -95,11 +100,15 @@ function SensorAccessory (log, config) {
         break;
       case "che_tphu5":
         this.tp5_ble_mac             = config.humidity.che_tphu5 ["ble_mac"];
-        this.ble_ctl_path            = config.humidity.che_tphu5 ["ble_ctl_path"]              || "/usr/local/lib/node_modules/homebridge-sensor/node_modules/sanwa_che-tphu5/";
+        this.noble_ctl_path          = config.humidity.che_tphu5 ["ble_ctl_path"]              || "/usr/local/lib/node_modules/homebridge-sensor/node_modules/sanwa_che-tphu5/";
         break;
       case "h5075":
         this.h5075_ble_mac           = config.humidity.h5075 ["ble_mac"];
         this.ble_ctl_path            = config.humidity.h5075 ["ble_ctl_path"]                  || "/usr/local/lib/node_modules/homebridge-sensor/node_modules/govee_h5075/";
+        break;
+      case "thermo_beacon":
+        this.t_beacon_ble_mac        = config.humidity.thermo_beacon ["ble_mac"];
+        this.ble_ctl_path            = config.humidity.thermo_beacon ["ble_ctl_path"]          || "/usr/local/lib/node_modules/homebridge-sensor/node_modules/govee_h5075/";
         break;
       default:
         this.log ("[Error] >>>> * * * The hygrometer was turned off because the specified meter could not be found * * *");
@@ -122,7 +131,7 @@ function SensorAccessory (log, config) {
         break;
       case "che_tphu5":
         this.tp5_ble_mac             = config.light.che_tphu5 ["ble_mac"];
-        this.ble_ctl_path            = config.light.che_tphu5 ["ble_ctl_path"]                 || "/usr/local/lib/node_modules/homebridge-sensor/node_modules/sanwa_che-tphu5/";
+        this.noble_ctl_path          = config.light.che_tphu5 ["ble_ctl_path"]                 || "/usr/local/lib/node_modules/homebridge-sensor/node_modules/sanwa_che-tphu5/";
         break;
       default:
         this.log ("[Error] >>>> * * * The illuminance meter was turned off because the specified meter could not be found * * *");
@@ -249,6 +258,9 @@ SensorAccessory.prototype.getMeasuredValue = function () {
       case "h5075":
         this.getH5075MeasuredValue ();
         break;
+      case "thermo_beacon":
+        this.getThermoBeaconMeasuredValue ();
+        break;
       default:
     };
   };
@@ -279,6 +291,11 @@ SensorAccessory.prototype.getMeasuredValue = function () {
       case "h5075":
         if (this.te_sensor != "h5075") {
           this.getH5075MeasuredValue ();
+        }
+        break;
+      case "thermo_beacon":
+        if (this.te_sensor != "thermo_beacon") {
+          this.getThermoBeaconMeasuredValue ();
         }
         break;
       default:
@@ -450,7 +467,7 @@ SensorAccessory.prototype.getSBLocalMeasuredValue = function () {
 
 //---- Sanwa CHE-TPHU5 -------------------------------------------------------------------
 SensorAccessory.prototype.getCheTphu5MeasuredValue = function () {
-  new CheTPHU5 (this.tp5_ble_mac, this.ble_ctl_path, function (error, value, stderr) {
+  new CheTPHU5 (this.tp5_ble_mac, this.noble_ctl_path, function (error, value, stderr) {
     if (value == null) {
       if (this.te_sensor == "che_tphu5") {
         this.log(`<<<< [Error] Temperature`);
@@ -514,6 +531,38 @@ SensorAccessory.prototype.getH5075MeasuredValue = function () {
           .updateCharacteristic (Characteristic.CurrentTemperature, this.te_val);
       };
       if (this.hu_sensor == "h5075") {
+        this.hu_val = value.hu
+        this.log(`<<<< [Update] Humidity: ${this.hu_val}`);
+        this.humiditySensorService
+          .updateCharacteristic (Characteristic.CurrentRelativeHumidity, this.hu_val);
+      };
+    };
+  }.bind (this));
+}
+
+//---- Thermo Beacon WS08 ----------------------------------------------------------------
+SensorAccessory.prototype.getThermoBeaconMeasuredValue = function () {
+  new ThermoBeacon (this.t_beacon_ble_mac, this.ble_ctl_path, function (error, value, stderr) {
+    if (value == null) {
+      if (this.te_sensor == "thermo_beacon") {
+        this.log(`<<<< [Error] Temperature`);
+        this.temperatureSensorService
+          .updateCharacteristic (Characteristic.CurrentTemperature, new Error (error));
+      }
+      if (this.hu_sensor == "thermo_beacon") {
+        this.log(`<<<< [Error] Humidity`);
+        this.humiditySensorService
+          .updateCharacteristic (Characteristic.CurrentRelativeHumidity, new Error (error));
+      }
+    }
+    else {
+      if (this.te_sensor == "thermo_beacon") {
+        this.te_val = value.te
+        this.log(`<<<< [Update] Temperature: ${this.te_val}`);
+        this.temperatureSensorService
+          .updateCharacteristic (Characteristic.CurrentTemperature, this.te_val);
+      };
+      if (this.hu_sensor == "thermo_beacon") {
         this.hu_val = value.hu
         this.log(`<<<< [Update] Humidity: ${this.hu_val}`);
         this.humiditySensorService

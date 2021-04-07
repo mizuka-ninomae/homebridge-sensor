@@ -1,6 +1,6 @@
 {
   "name": "homebridge-sensor",
-  "version": "0.4.4",
+  "version": "0.4.6",
   "main": "index.js",
   "scripts": {
     "lint": "echo \"Warning: lint is not used\" && exit 0",
@@ -20,10 +20,13 @@
     "sanwa_che-tphu5": "^0.1.3",
     "switchbot_cloud_wosensorth": "^0.2.2",
     "switchbot_local_wosensorth": "^0.1.3",
+    "thermo_beacon_ws08": "^0.1.0",
     "zh06": "^0.1.1"
   },
   "keywords": [
-    "homebridge-plugin"
+    "homebridge-plugin",
+    "sensor",
+    "meter"
   ],
   "repository": {
     "type": "git",
